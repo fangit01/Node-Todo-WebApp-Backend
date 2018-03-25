@@ -79,6 +79,7 @@ app.delete('/todos/users/:username/tasks/completed/:id', checkToken, (req, res) 
 
 
 app.post('/signup', (req, res) => {
+  // for personal testing only, so no password hashing/encryption implemented here. 
   User.create({ "username": req.body.username, "password": req.body.password }, (err, data) => {
     if (err) { res.send('there is an error creating your account') } else {
       res.send('acct created')
