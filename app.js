@@ -10,6 +10,10 @@ const bodyParser = require("body-parser");
 const User = require('./models/user.js');
 
 
+app.use('/', express.static('react_build')); // localhost:3001/static/123.txt
+
+var PORT = process.env.PORT || 5000;
+
 app.use(morgan("tiny"));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -17,6 +21,7 @@ app.use(cors());
 
 app.get('/todos/users/:username', checkToken, (req, res) => {
   User.findOne({ username: req.params.username }, (err, foundUser) => {
+    if (err) { res.send(err) };
     res.send([foundUser.tasks, foundUser.completedTask]);
   })
 })
@@ -24,6 +29,7 @@ app.get('/todos/users/:username', checkToken, (req, res) => {
 
 app.post('/todos/users/:username/tasks/new', checkToken, (req, res) => {
   User.findOne({ username: req.params.username }, (err, foundUser) => {
+    if (err) { res.send(err) };
     foundUser.tasks.push({ name: req.body.taskname });
     foundUser.save();
     res.send(foundUser.tasks[foundUser.tasks.length - 1]);
@@ -32,26 +38,44 @@ app.post('/todos/users/:username/tasks/new', checkToken, (req, res) => {
 
 app.post('/todos/users/:username/tasks/:id/movetocompleted', checkToken, (req, res) => {
   User.findOne({ username: req.params.username }, (err, foundUser) => {
-    if (err) { console.log(err) } else {
-      var item = foundUser.tasks.find(obj => obj._id == req.params.id);
-      foundUser.tasks = foundUser.tasks.filter(item => { return item._id != req.params.id }); // cannot use !== because tyoeof item._id is an object
-      foundUser.completedTask.push(item);
-      foundUser.save(); // must use foundUser to save
-      res.send(foundUser.completedTask[foundUser.completedTask.length - 1]);
+
+    var item = foundUser.tasks.find(obj => obj._id == req.params.id);
+    if (item == undefined) {
+      res.send('task already moved to completed')//double check if item is already moved, in case user clicks too fast
+    } else {
+      foundUser.tasks = foundUser.tasks.filter(item => { return item._id != req.params.id }); // cannot use !== because tyoeof item._id is an object      
+      if (foundUser.completedTask.find(obj => obj._id == item.id) == undefined) { //double check there is no duplicate entry        
+        foundUser.completedTask.push(item);
+        foundUser.save(); // must use foundUser to save
+        res.send(foundUser.completedTask[foundUser.completedTask.length - 1]);
+      } else {
+        res.send('err002')
+      }
     }
-  })
+  }).catch(error => {
+    res.send(error);
+  });
 })
 
 app.post('/todos/users/:username/tasks/:id/movebacktotodo', checkToken, (req, res) => {
   User.findOne({ username: req.params.username }, (err, foundUser) => {
-    if (err) { console.log(err) } else {
-      var item = foundUser.completedTask.find(obj => obj._id == req.params.id);
+    var item = foundUser.completedTask.find(obj => obj._id == req.params.id);    
+    if (item == undefined) {
+      res.send('task already moved to todos list')
+    } else {
       foundUser.completedTask = foundUser.completedTask.filter(item => { return item._id != req.params.id }); // cannot use !== because tyoeof item._id is an object
-      foundUser.tasks.push(item);
-      foundUser.save(); // must use foundUser to save
-      res.send(foundUser.tasks[foundUser.tasks.length - 1]);
+
+      if (foundUser.tasks.find(obj => obj._id == item.id) == undefined) {
+        foundUser.tasks.push(item);
+        foundUser.save(); // must use foundUser to save
+        res.send(foundUser.tasks[foundUser.tasks.length - 1]);
+      } else {
+        res.send('error')
+      }
     }
-  })
+  }).catch(error => {
+    res.send(error);
+  });
 })
 
 
@@ -59,7 +83,7 @@ app.post('/todos/users/:username/tasks/:id/movebacktotodo', checkToken, (req, re
 
 app.delete('/todos/users/:username/tasks/:id', checkToken, (req, res) => {
   User.findOne({ username: req.params.username }, (err, foundUser) => {
-    if (err) { console.log(err) } else {
+    if (err) { res.send(err) } else {
       foundUser.tasks = foundUser.tasks.filter(item => { return item._id != req.params.id }); // cannot use !== because tyoeof item._id is an object
       foundUser.save(); // must use foundUser to save
       res.send(`deleted item with id: ${req.params.id}`);
@@ -69,7 +93,7 @@ app.delete('/todos/users/:username/tasks/:id', checkToken, (req, res) => {
 
 app.delete('/todos/users/:username/tasks/completed/:id', checkToken, (req, res) => {
   User.findOne({ username: req.params.username }, (err, foundUser) => {
-    if (err) { console.log(err) } else {
+    if (err) { res.send(err) } else {
       foundUser.completedTask = foundUser.completedTask.filter(item => { return item._id != req.params.id }); // cannot use !== because tyoeof item._id is an object
       foundUser.save(); // must use foundUser to save
       res.send(`deleted completedTask item with id: ${req.params.id}`);
@@ -157,6 +181,6 @@ function checkToken(req, res, next) {
 
 
 
-app.listen(5000, function () {
-  console.log("Server starting on port 5000");
+app.listen(PORT, function () {
+  console.log(`Server starting on port ${PORT}`);
 });

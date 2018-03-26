@@ -1,5 +1,7 @@
+require('dotenv').config();
+
 const mongoose = require("mongoose");
-mongoose.connect("mongodb://localhost:27017/todos-backend");
+mongoose.connect(process.env.DB_HOST);
 mongoose.set("debug", true);
 mongoose.Promise = Promise;
 
